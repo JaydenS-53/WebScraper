@@ -13,29 +13,39 @@ def scrape_website
     html_content = response.body
     doc = Nokogiri::HTML(html_content)
 
+    # Get the IP address of the website
+    ip_address = IPSocket.getaddress(url.host)
+
+    # Add IP address to output
+    $output.value += "Website IP Address:\n\n#{ip_address}\n\n"
+    $output.insert('end', "----------------------------------------------------------------------------------------------------------------------------------------------\n\n")
+
     # extract email addresses
     email_regex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b/
-    email_addresses = html_content.scan(email_regex).uniq
+    email_addresses = html_content.scan(email_regex).uniq.reject do |email|
+      email =~ /\.(jpeg|png)\b/
+    end
     # add emails to output
     if !email_addresses.empty?
       $output.value += "Email Addresses:\n\n#{email_addresses.join("\n")}\n\n"
       $output.insert('end', "----------------------------------------------------------------------------------------------------------------------------------------------\n\n")
     end
 
-    unique_phone_numbers = Set.new
+    # Search for physical addresses
+    address_regex = /\b\d{1,5}\s\w+\s\w+,\s\w+\s\d{5}\b/
+    addresses = html_content.scan(address_regex).uniq
 
-    # Extract phone numbers using regular expression
-    phone_number_regex = /\b(?:\+?(\d{1,3}))?[-. (]*(\d{3})[-. )]*(\d{3})[-. ]*(\d{4})\b/
-    phone_numbers = html_content.scan(phone_number_regex).map { |match| match.compact.join('-') }
-    
-    # Add unique phone numbers to the set
-    phone_numbers.each do |phone|
-      unique_phone_numbers.add(phone)
+    if !addresses.empty?
+      $output.value += "Physical Addresses:\n\n#{addresses.join("\n")}\n\n"
+      $output.insert('end', "----------------------------------------------------------------------------------------------------------------------------------------------\n\n")
     end
 
-    # Add phone numbers to output
-    if !unique_phone_numbers.empty?
-      $output.value += "Phone Numbers:\n\n#{unique_phone_numbers.to_a.join("\n")}\n\n"
+    # Search for US and UK postcodes
+    postcode_regex = /\b[A-Z]{1,2}\d{1,2}\s?\d[A-Z]{2}\b/
+    postcodes = html_content.scan(postcode_regex).uniq
+
+    if !postcodes.empty?
+      $output.value += "Postcodes:\n\n#{postcodes.join("\n")}\n\n"
       $output.insert('end', "----------------------------------------------------------------------------------------------------------------------------------------------\n\n")
     end
 
@@ -45,7 +55,9 @@ def scrape_website
       'Instagram' => 'instagram.com',
       'LinkedIn' => 'linkedin.com',
       'Github' => 'github.com',
-      'Youtube' => 'youtube.com'
+      'Youtube' => 'youtube.com',
+      'Reddit' => 'reddit.com',
+      'Pinterest' => 'pinterest.com'
     }
   
     social_media_accounts = {}
@@ -68,6 +80,14 @@ def scrape_website
     $output.value += "HTTP Response:\n\n#{header_text}\n\n"
     $output.insert('end', "----------------------------------------------------------------------------------------------------------------------------------------------\n\n")
 
+    images = doc.css('img').map { |img| img['src'] }
+
+    # Add images to output
+    if !images.empty?
+      $output.value += "Images:\n\n#{images.join("\n")}\n\n"
+      $output.insert('end', "----------------------------------------------------------------------------------------------------------------------------------------------\n\n")
+    end
+
     # Fetch and display robots.txt
     robots_url = "#{url.scheme}://#{url.host}/robots.txt"
     robots_response = Net::HTTP.get_response(URI.parse(robots_url))
@@ -78,6 +98,23 @@ def scrape_website
       $output.insert('end', "-------------------------------------------------------------------------------------------------------\n\n")
     else
       $output.value += "Error fetching robots.txt: #{robots_response.code} #{robots_response.message}\n\n"
+    end
+
+    unique_phone_numbers = Set.new
+
+    # Extract phone numbers using regular expression
+    phone_number_regex = /\b(?:\+?(\d{1,3}))?[-. (]*(\d{3})[-. )]*(\d{3})[-. ]*(\d{4})\b/
+    phone_numbers = html_content.scan(phone_number_regex).map { |match| match.compact.join('-') }
+    
+    # Add unique phone numbers to the set
+    phone_numbers.each do |phone|
+      unique_phone_numbers.add(phone)
+    end
+
+    # Add phone numbers to output
+    if !unique_phone_numbers.empty?
+      $output.value += "Phone Numbers:\n\n#{unique_phone_numbers.to_a.join("\n")}\n\n"
+      $output.insert('end', "----------------------------------------------------------------------------------------------------------------------------------------------\n\n")
     end
 
     # extract links
@@ -103,6 +140,15 @@ def scrape_website
          $output.insert('end', "----------------------------------------------------------------------------------------------------------------------------------------------\n\n")
        end
      end
+
+     # Search for dates
+    date_regex = /\b(?:\d{1,2}[\/\.-]\d{1,2}[\/\.-]\d{2,4}|\d{4}[\/\.-]\d{1,2}[\/\.-]\d{1,2})\b/
+    dates = html_content.scan(date_regex).uniq
+
+    if !dates.empty?
+      $output.value += "Dates:\n\n#{dates.join("\n")}\n\n"
+      $output.insert('end', "----------------------------------------------------------------------------------------------------------------------------------------------\n\n")
+    end
 
   else
     $output.value = "Error: #{response.code} #{response.message}"
