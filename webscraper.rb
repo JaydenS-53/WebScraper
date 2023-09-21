@@ -13,29 +13,13 @@ def scrape_website
     html_content = response.body
     doc = Nokogiri::HTML(html_content)
 
-    # Extract headers
-    h1 = doc.css('h1').map { |h1| h1.text }
-    h2 = doc.css('h2').map { |h2| h2.text }
-    h3 = doc.css('h3').map { |h3| h3.text }
-    h4 = doc.css('h4').map { |h4| h4.text }
-    h5 = doc.css('h5').map { |h5| h5.text }
- 
-    # Update the output area with headers
-    [h1, h2, h3, h4, h5].each_with_index do |headers, index|
-      if !headers.empty?
-        level = index + 1
-        $output.value += "H#{level} Headers:\n\n#{headers.join("\n")}\n\n"
-        $output.insert('end', "-------------------------------------------------------------------------------------------------------\n\n")
-      end
-    end
-
     # extract email addresses
     email_regex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b/
     email_addresses = html_content.scan(email_regex).uniq
     # add emails to output
     if !email_addresses.empty?
       $output.value += "Email Addresses:\n\n#{email_addresses.join("\n")}\n\n"
-      $output.insert('end', "-------------------------------------------------------------------------------------------------------\n\n")
+      $output.insert('end', "----------------------------------------------------------------------------------------------------------------------------------------------\n\n")
     end
 
     unique_phone_numbers = Set.new
@@ -52,7 +36,48 @@ def scrape_website
     # Add phone numbers to output
     if !unique_phone_numbers.empty?
       $output.value += "Phone Numbers:\n\n#{unique_phone_numbers.to_a.join("\n")}\n\n"
+      $output.insert('end', "----------------------------------------------------------------------------------------------------------------------------------------------\n\n")
+    end
+
+    social_media_platforms = {
+      'Facebook' => 'facebook.com',
+      'Twitter' => 'twitter.com',
+      'Instagram' => 'instagram.com',
+      'LinkedIn' => 'linkedin.com',
+      'Github' => 'github.com',
+      'Youtube' => 'youtube.com'
+    }
+  
+    social_media_accounts = {}
+  
+    social_media_platforms.each do |platform, domain|
+      links = doc.css("a[href*='#{domain}']").map { |link| link['href'] }
+      social_media_accounts[platform] = links unless links.empty?
+    end
+  
+    # Update the output area with social media accounts
+    social_media_accounts.each do |platform, accounts|
+      $output.value += "#{platform} Accounts:\n\n#{accounts.join("\n")}\n\n"
+      $output.insert('end', "----------------------------------------------------------------------------------------------------------------------------------------------\n\n")
+    end
+
+    headers = response.to_hash
+    header_text = headers.map { |key, value| "#{key}: #{value.join(', ')}" }.join("\n")
+
+    # Update the output area with headers
+    $output.value += "HTTP Response:\n\n#{header_text}\n\n"
+    $output.insert('end', "----------------------------------------------------------------------------------------------------------------------------------------------\n\n")
+
+    # Fetch and display robots.txt
+    robots_url = "#{url.scheme}://#{url.host}/robots.txt"
+    robots_response = Net::HTTP.get_response(URI.parse(robots_url))
+
+    if robots_response.code == '200'
+      robots_content = robots_response.body
+      $output.value += "robots.txt:\n\n#{robots_content}\n\n"
       $output.insert('end', "-------------------------------------------------------------------------------------------------------\n\n")
+    else
+      $output.value += "Error fetching robots.txt: #{robots_response.code} #{robots_response.message}\n\n"
     end
 
     # extract links
@@ -60,34 +85,29 @@ def scrape_website
     # add links to output
     if !links.empty?
       $output.value += "Links:\n\n#{links.join("\n")}\n\n"
-      $output.insert('end', "-------------------------------------------------------------------------------------------------------\n\n")
+      $output.insert('end', "----------------------------------------------------------------------------------------------------------------------------------------------\n\n")
     end
+
+    # Extract headers
+     h1 = doc.css('h1').map { |h1| h1.text }
+     h2 = doc.css('h2').map { |h2| h2.text }
+     h3 = doc.css('h3').map { |h3| h3.text }
+     h4 = doc.css('h4').map { |h4| h4.text }
+     h5 = doc.css('h5').map { |h5| h5.text }
+  
+     # Update the output area with headers
+     [h1, h2, h3, h4, h5].each_with_index do |headers, index|
+       if !headers.empty?
+         level = index + 1
+         $output.value += "H#{level} Headers:\n\n#{headers.join("\n")}\n\n"
+         $output.insert('end', "----------------------------------------------------------------------------------------------------------------------------------------------\n\n")
+       end
+     end
+
   else
     $output.value = "Error: #{response.code} #{response.message}"
+
   end
-
-  social_media_platforms = {
-    'Facebook' => 'facebook.com',
-    'Twitter' => 'twitter.com',
-    'Instagram' => 'instagram.com',
-    'LinkedIn' => 'linkedin.com',
-    'Github' => 'github.com'
-    # Add more platforms as needed
-  }
-
-  social_media_accounts = {}
-
-  social_media_platforms.each do |platform, domain|
-    links = doc.css("a[href*='#{domain}']").map { |link| link['href'] }
-    social_media_accounts[platform] = links unless links.empty?
-  end
-
-  # Update the output area with social media accounts
-  social_media_accounts.each do |platform, accounts|
-    $output.value += "#{platform} Accounts:\n\n#{accounts.join("\n")}\n\n"
-    $output.insert('end', "-------------------------------------------------------------------------------------------------------\n\n")
-  end
-
 
 end
 
